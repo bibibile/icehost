@@ -1,7 +1,7 @@
 name: IceHost Hourly KeepAlive
 
 on:
-  workflow_dispatch: # 由外部定时（如 cron-job.org）进行每小时触发
+  workflow_dispatch: # 由外部定时（如 cron-job.org）进行触发
 
 jobs:
   check-and-start:
@@ -20,9 +20,43 @@ jobs:
           pip install playwright requests
           playwright install chromium
 
-      # ⚡ 核心新增：在运行脚本前，一键启动全局 Cloudflare WARP 代理，完美绕过 IP 阻断
-      - name: Set up WARP
-        uses: fscarmen/warp-on-actions@v1.1
+      # ⚡ 核心移植：KataBump 同款 sing-box 节点代理
+      - name: Install and Start sing-box Proxy
+        env:
+          NODE_LINK: ${{ secrets.NODE_LINK }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$NODE_LINK" ]; then
+            echo "ℹ️ 未配置 NODE_LINK Secret，将使用 GitHub Actions 本地网络直连。"
+          else
+            echo "📥 获取 sing-box 最新版本..."
+            API_RESP=$(curl -sf -H "Authorization: token ${GH_TOKEN}" https://api.github.com/repos/SagerNet/sing-box/releases/latest)
+            SINGBOX_VER=$(echo "$API_RESP" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p')
+            echo "  最新版本: ${SINGBOX_VER}"
+            
+            curl -fLo sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-amd64.tar.gz"
+            tar -xzf sing-box.tar.gz
+            cp "sing-box-${SINGBOX_VER}-linux-amd64/sing-box" ./sing-box
+            chmod +x ./sing-box
+            
+            echo "📝 转换节点链接为 sing-box 配置..."
+            python convert.py "$NODE_LINK"
+            
+            echo "🚀 启动 sing-box..."
+            nohup ./sing-box run -c config.json > sing-box.log 2>&1 &
+            sleep 5
+            
+            echo "🔍 验证代理连通性..."
+            if curl -x http://127.0.0.1:8080 -s --max-time 10 https://api.ip.sb/ip; then
+              echo "✅ sing-box 代理启动成功"
+              # 将本地代理地址写入环境变量，供 Python 脚本读取
+              echo "ICEHOST_PROXY=http://127.0.0.1:8080" >> $GITHUB_ENV
+            else
+              echo "❌ 代理连通性测试失败，sing-box 日志："
+              cat sing-box.log
+              exit 1
+            fi
+          fi
 
       - name: Run check script
         env:
@@ -30,6 +64,7 @@ jobs:
           ICEHOST_COOKIES: ${{ secrets.ICEHOST_COOKIES }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          # 💡 ICEHOST_PROXY 变量会自动从上一环节的环境变量中继承过来
         run: python icehost_run.py
 
       - name: Upload Debug Screenshot
