@@ -130,13 +130,13 @@ def run():
 
         page.route("**/*", handle_route)
 
-      print(f"正在访问 IceHost 面板: {SERVER_URL}")
+        print(f"正在访问 IceHost 面板: {SERVER_URL}")
         page.goto(SERVER_URL)
         
         # 初始等待页面加载
         page.wait_for_timeout(4000)
 
-        # ⚔️ 新增：Cloudflare Turnstile 自动破盾逻辑
+        # ⚔️ 终极融合：Cloudflare Turnstile 自动物理破盾逻辑
         cf_iframe = page.locator("iframe[src*='challenges.cloudflare.com'], iframe[src*='turnstile']").first
         if cf_iframe.is_visible():
             print("🛡️ 检测到 Cloudflare 人机验证盾，准备模拟真实物理点击...")
@@ -173,8 +173,11 @@ def run():
             browser.close()
             return
 
-        # 3. 核心探测：高精度多重波兰语关键词探测
-        keywords = ["Nie możesz przedłużyć", "niedawno to zrobiłeś", "kolejne 6 godziny"]
+        # 3. 核心探测：终极融合英/波双语拦截关键词
+        keywords = [
+            "Nie możesz przedłużyć", "niedawno to zrobiłeś", "kolejne 6 godziny",
+            "cannot extend", "recently", "another 6 hours", "wait"
+        ]
         is_limited = False
         
         for kw in keywords:
@@ -183,13 +186,13 @@ def run():
                 break
         
         if is_limited:
-            # 页面一加载就已经是限制状态：说明未到可续期时间，直接安静退出，绝不发消息打扰你
+            # 页面一加载就已经是限制状态：说明未到可续期时间，直接安静退出
             print("检测到红框限制提示：说明未到可续期时间。结束本次运行（不发送 Telegram 提醒）。")
             browser.close()
             return
 
-        # 4. 如果没有到上限，安全寻找并点击续期按钮
-        renew_btn = page.locator("a:has-text('DODAJ 6 GODZIN'), button:has-text('DODAJ 6 GODZIN'), [class*='blue']:has-text('DODAJ 6 GODZIN')").first
+        # 4. 终极融合：安全寻找并点击英/波双语续期按钮
+        renew_btn = page.locator("a:has-text('DODAJ 6 GODZIN'), a:has-text('ADD 6 HOURS VALIDITY'), button:has-text('DODAJ 6 GODZIN'), button:has-text('ADD 6 HOURS VALIDITY'), [class*='blue']:has-text('DODAJ 6 GODZIN'), [class*='blue']:has-text('ADD 6 HOURS VALIDITY')").first
         
         if renew_btn.is_visible() and renew_btn.is_enabled():
             print("未检测到限制提示，找到续期按钮，正在点击...")
@@ -207,12 +210,8 @@ def run():
                     break
                     
             if is_now_limited:
-                # 核心修改：如果点击后出现了红框提示，说明其实“未到可续期时间”（续期被服务器拒接，未成功延长效期）
-                # 此时不发送 Telegram 消息，保持安静，直接退出。
                 print("点击后弹出了红框提示：说明未到可续期时间（续期未成功）。结束本次运行（不发送 Telegram 提醒）。")
             else:
-                # 如果点击后页面没有出现任何红框报错，说明“真正续期成功，服务器效期被成功延长”
-                # 此时才向 Telegram 发送成功的通知和截图！
                 msg = "⚡ <b>IceHost 服务器续期成功！</b>\n服务器已真正成功延长 6 小时有效期。"
                 print(msg)
                 send_tg_notification(msg, "icehost_debug_screenshot.png")
