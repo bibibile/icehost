@@ -15,12 +15,15 @@ jobs:
         with:
           python-version: '3.10'
 
+      # 🛠️ 关键修改：安装 xvfb 虚拟屏幕组件
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-utils
           pip install playwright requests
           playwright install chromium
 
-      # ⚡ 核心移植：KataBump 同款 sing-box 节点代理
+      # ⚡ sing-box 代理配置（保持不变）
       - name: Install and Start sing-box Proxy
         env:
           NODE_LINK: ${{ secrets.NODE_LINK }}
@@ -49,7 +52,6 @@ jobs:
             echo "🔍 验证代理连通性..."
             if curl -x http://127.0.0.1:8080 -s --max-time 10 https://api.ip.sb/ip; then
               echo "✅ sing-box 代理启动成功"
-              # 将本地代理地址写入环境变量，供 Python 脚本读取
               echo "ICEHOST_PROXY=http://127.0.0.1:8080" >> $GITHUB_ENV
             else
               echo "❌ 代理连通性测试失败，sing-box 日志："
@@ -58,14 +60,15 @@ jobs:
             fi
           fi
 
+      # 🚀 核心修改：使用 xvfb-run 启动 Python 脚本
       - name: Run check script
         env:
           ICEHOST_SERVER_URL: ${{ secrets.ICEHOST_SERVER_URL }}
           ICEHOST_COOKIES: ${{ secrets.ICEHOST_COOKIES }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          # 💡 ICEHOST_PROXY 变量会自动从上一环节的环境变量中继承过来
-        run: python icehost_run.py
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" python icehost_run.py
 
       - name: Upload Debug Screenshot
         if: always()
