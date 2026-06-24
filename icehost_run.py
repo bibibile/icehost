@@ -130,9 +130,37 @@ def run():
 
         page.route("**/*", handle_route)
 
-        print(f"正在访问 IceHost 面板: {SERVER_URL}")
+      print(f"正在访问 IceHost 面板: {SERVER_URL}")
         page.goto(SERVER_URL)
-        page.wait_for_timeout(10000)
+        
+        # 初始等待页面加载
+        page.wait_for_timeout(4000)
+
+        # ⚔️ 新增：Cloudflare Turnstile 自动破盾逻辑
+        cf_iframe = page.locator("iframe[src*='challenges.cloudflare.com'], iframe[src*='turnstile']").first
+        if cf_iframe.is_visible():
+            print("🛡️ 检测到 Cloudflare 人机验证盾，准备模拟真实物理点击...")
+            try:
+                # 获取验证框的绝对物理坐标
+                box = cf_iframe.bounding_box()
+                if box:
+                    # 计算中心点坐标
+                    target_x = box["x"] + box["width"] / 2
+                    target_y = box["y"] + box["height"] / 2
+                    
+                    # 模拟真实鼠标移动并点击（避开自动化检测）
+                    page.mouse.move(target_x, target_y, steps=10)
+                    page.wait_for_timeout(500)
+                    page.mouse.click(target_x, target_y)
+                    print("🖱️ 已物理点击验证框，等待验证通过...")
+                    
+                    # 给 Cloudflare 一点时间转圈和验证
+                    page.wait_for_timeout(8000)
+            except Exception as e:
+                print(f"⚠️ 点击验证框时出现异常: {e}")
+        else:
+            # 如果没有盾，补足剩余的常规等待时间
+            page.wait_for_timeout(6000)
 
         # 首次截图
         page.screenshot(path="icehost_debug_screenshot.png")
