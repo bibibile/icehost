@@ -123,8 +123,26 @@ def run():
                         fc["sameSite"] = "Strict"
                 formatted_cookies.append(fc)
             
+           # 1. 注入并进行高精度统一 URL 编码（原代码块）
             context.add_cookies(formatted_cookies)
             print("Cookie 成功执行双重高精度 URL 编码并注入！已完美规避 PHP '+' 转换漏洞。")
+
+            # 🛡️ 插入位置：就在这里注入 cf_clearance
+            CF_CLEARANCE = os.getenv("CF_CLEARANCE")
+            if CF_CLEARANCE:
+                print("🍪 检测到 CF_CLEARANCE，正在注入以绕过 Cloudflare...")
+                context.add_cookies([{
+                    "name": "cf_clearance",
+                    "value": CF_CLEARANCE,
+                    "domain": ".dash.icehost.pl", # 请确保此域名与面板域名匹配
+                    "path": "/",
+                    "httpOnly": True,
+                    "secure": True,
+                    "sameSite": "None"
+                }])
+                print("✅ CF_CLEARANCE 注入成功。")
+
+        
 
         except Exception as e:
             print(f"凭证解析/注入失败: {e}")
