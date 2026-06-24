@@ -1,7 +1,7 @@
 name: IceHost Hourly KeepAlive
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch: # 由外部定时（如 cron-job.org）进行每小时触发
 
 jobs:
   check-and-start:
@@ -15,32 +15,26 @@ jobs:
         with:
           python-version: '3.10'
 
-      # ✅ 极简安装：只安装 requests，不再需要浏览器驱动
       - name: Install dependencies
         run: |
-          pip install requests
+          # 核心改变：安装 seleniumbase 代替 playwright
+          pip install seleniumbase requests
 
-      # ⚡ sing-box 代理配置（保留，确保网络连通性）
-      - name: Install and Start sing-box Proxy
-        env:
-          NODE_LINK: ${{ secrets.NODE_LINK }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -z "$NODE_LINK" ]; then
-            echo "ℹ️ 未配置 NODE_LINK，直接联网。"
-          else
-            # ... (保留您原有的 sing-box 下载及启动逻辑)
-            # ...
-            echo "ICEHOST_PROXY=http://127.0.0.1:8080" >> $GITHUB_ENV
-          fi
+      - name: Set up WARP
+        uses: fscarmen/warp-on-actions@v1.1
 
-      # ✅ 核心运行步骤：直接执行 Python 脚本，不再需要 xvfb-run
       - name: Run check script
         env:
           ICEHOST_SERVER_URL: ${{ secrets.ICEHOST_SERVER_URL }}
           ICEHOST_COOKIES: ${{ secrets.ICEHOST_COOKIES }}
-          CF_CLEARANCE: ${{ secrets.CF_CLEARANCE }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: |
-          python icehost_run.py
+        run: python icehost_run.py
+
+      - name: Upload Debug Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: icehost-debug-screenshot
+          path: icehost_debug_screenshot.png
+          if-no-files-found: ignore
