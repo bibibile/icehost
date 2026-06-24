@@ -50,14 +50,19 @@ def _vmess(link: str) -> dict:
     net = v.get("net", "tcp")
     if net == "ws":
         t = {"type": "ws"}
-        if v.get("path"):
-            t["path"] = v["path"]
-        if v.get("host"):
-            t["headers"] = {"Host": v.get("host")}
+        p = v.get("path", "")
+        # 💡 核心修复：确保 path 以 / 开头，防止 Nginx 报 404
+        if p and not p.startswith("/"):
+            p = "/" + p
+        if p:
+            t["path"] = p
+            
+        host = v.get("host", "")
+        if host:
+            t["headers"] = {"Host": host}
         ob["transport"] = t
     elif net == "grpc":
         t = {"type": "grpc"}
-        # VMESS 的 grpc serviceName 通常存在 path 中
         if v.get("path"):
             t["service_name"] = v.get("path")
         ob["transport"] = t
@@ -66,7 +71,7 @@ def _vmess(link: str) -> dict:
         if v.get("host"):
             t["host"] = v.get("host").split(",")
         if v.get("path"):
-            t["path"] = v.get("path")  # 👈 核心修复：把方括号改回了正确的圆括号
+            t["path"] = v.get("path")
         ob["transport"] = t
 
     # ── tls ──
