@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""将代理分享链接 (vmess:// vless:// hysteria2:// tuic:// socks://) 转换为 sing-box 配置文件"""
+"""将代理分享链接 (vless:// hysteria2:// tuic:// socks://) 转换为 sing-box 配置文件"""
 
 import json
 import sys
 import urllib.parse
-import base64
 
 INBOUND = {
     "type": "http",
@@ -13,80 +12,11 @@ INBOUND = {
     "listen_port": 8080
 }
 
+
 def _frag(link: str):
     """从 URL fragment 提取节点名称"""
     h = urllib.parse.urlparse(link)
     return urllib.parse.unquote(h.fragment) if h.fragment else ""
-
-# ── vmess:// ─────────────────────────────────────────────
-def _vmess(link: str) -> dict:
-    if not link.startswith("vmess://"):
-        raise ValueError(f"不支持的协议: {link.split('://')[0]}")
-    
-    b64_str = link[8:]
-    # 补齐 Base64 的 padding，防止解码报错
-    b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
-    
-    try:
-        decoded_str = base64.b64decode(b64_str).decode('utf-8')
-        v = json.loads(decoded_str)
-    except Exception as e:
-        raise ValueError(f"VMESS 链接 Base64 解码或 JSON 解析失败: {e}")
-
-    server = v.get("add", "")
-    port = int(v.get("port", 443))
-    uuid = v.get("id", "")
-
-    ob = {
-        "type": "vmess",
-        "server": server,
-        "server_port": port,
-        "uuid": uuid,
-        "alter_id": int(v.get("aid", 0)),
-        "security": v.get("scy", "auto")
-    }
-
-    # ── transport ──
-    net = v.get("net", "tcp")
-    if net == "ws":
-        t = {"type": "ws"}
-        p = v.get("path", "")
-        # 💡 核心修复：确保 path 以 / 开头，防止 Nginx 报 404
-        if p and not p.startswith("/"):
-            p = "/" + p
-        if p:
-            t["path"] = p
-            
-        host = v.get("host", "")
-        if host:
-            t["headers"] = {"Host": host}
-        ob["transport"] = t
-    elif net == "grpc":
-        t = {"type": "grpc"}
-        if v.get("path"):
-            t["service_name"] = v.get("path")
-        ob["transport"] = t
-    elif net in ("h2", "http"):
-        t = {"type": "http"}
-        if v.get("host"):
-            t["host"] = v.get("host").split(",")
-        if v.get("path"):
-            t["path"] = v.get("path")
-        ob["transport"] = t
-
-    # ── tls ──
-    if v.get("tls") == "tls":
-        tls = {"enabled": True}
-        sni = v.get("sni") or v.get("host") or server
-        if sni:
-            tls["server_name"] = sni
-            
-        alpn_s = v.get("alpn", "")
-        if alpn_s:
-            tls["alpn"] = [a.strip() for a in alpn_s.split(",") if a.strip()]
-        ob["tls"] = tls
-
-    return ob
 
 
 # ── vless:// ─────────────────────────────────────────────
@@ -241,8 +171,6 @@ def _socks(link: str) -> dict:
 def parse_link(link: str) -> dict:
     link = link.strip()
 
-    if link.startswith("vmess://"):
-        return _vmess(link)
     if link.startswith("vless://"):
         return _vless(link)
     if link.startswith("hysteria2://") or link.startswith("hy2://"):
@@ -253,7 +181,7 @@ def parse_link(link: str) -> dict:
         return _socks(link)
 
     raise ValueError(
-        f"不支持的链接格式，仅支持: vmess:// vless:// hysteria2:// hy2:// tuic:// socks://\n"
+        f"不支持的链接格式，仅支持: vless:// hysteria2:// hy2:// tuic:// socks://\n"
         f"收到: {link[:50]}..."
     )
 
@@ -261,7 +189,7 @@ def parse_link(link: str) -> dict:
 def main():
     if len(sys.argv) < 2:
         print("用法: python3 convert.py <分享链接>")
-        print("示例: python3 convert.py 'vmess://eyJhZGQiOiIxLjIuMy40Ii...='")
+        print("示例: python3 convert.py 'vless://uuid@server:443?type=ws&security=tls&...'")
         sys.exit(1)
 
     link = sys.argv[1].strip()
