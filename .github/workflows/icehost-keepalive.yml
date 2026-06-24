@@ -15,13 +15,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 🛠️ 关键修改：安装 xvfb 虚拟屏幕组件
+     # ✅ 替换这里：原本安装 playwright 的地方
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils
-          pip install playwright requests
-          playwright install chromium
+          sudo apt-get install -y xvfb
+          pip install seleniumbase
+          sbase install chromedriver
 
       # ⚡ sing-box 代理配置（保持不变）
       - name: Install and Start sing-box Proxy
