@@ -66,7 +66,7 @@ def _vmess(link: str) -> dict:
         if v.get("host"):
             t["host"] = v.get("host").split(",")
         if v.get("path"):
-            t["path"] = v.get("path"]
+            t["path"] = v.get("path")  # 👈 核心修复：把方括号改回了正确的圆括号
         ob["transport"] = t
 
     # ── tls ──
