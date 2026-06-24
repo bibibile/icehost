@@ -72,8 +72,11 @@ def run():
             viewport={"width": 1280, "height": 720}
         )
 
+       
         # 隐藏自动化控制指纹
         context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        # 🛡️ 增加：彻底抹除 CDC 指纹
+        context.add_init_script("window.cdc_adoQpoasnfa76pfcZLmcfl_Array = undefined; window.cdc_adoQpoasnfa76pfcZLmcfl_Promise = undefined;")
 
         try:
             raw_data = json.loads(ICEHOST_COOKIES)
@@ -167,7 +170,7 @@ def run():
                     print("🖱️ 已物理点击验证框，等待验证通过...")
                     
                     # 给 Cloudflare 一点时间转圈和验证
-                    page.wait_for_timeout(8000)
+                    page.wait_for_timeout(15000)
             except Exception as e:
                 print(f"⚠️ 点击验证框时出现异常: {e}")
         else:
