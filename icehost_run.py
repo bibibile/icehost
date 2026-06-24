@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 
 SERVER_URL = os.getenv("ICEHOST_SERVER_URL")
 ICEHOST_COOKIES = os.getenv("ICEHOST_COOKIES")
+ICEHOST_PROXY = os.getenv("ICEHOST_PROXY")  # 👈 新增：读取代理环境变量
 
 def send_tg_notification(message, photo_path=None):
     """发送结果和截图至 Telegram"""
@@ -45,15 +46,26 @@ def run():
         return
 
     with sync_playwright() as p:
-        # 启用过检测参数，抹除自动化特征
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
+        
+        # 👈 新增：动态组装浏览器启动参数（兼容代理设置）
+        launch_options = {
+            "headless": True,
+            "args": [
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-setuid-sandbox"
             ]
-        )
+        }
+        
+        # 如果检测到代理变量，则注入代理配置
+        if ICEHOST_PROXY:
+            print(f"🔗 检测到代理配置，正在挂载代理节点: {ICEHOST_PROXY}")
+            launch_options["proxy"] = {"server": ICEHOST_PROXY}
+        else:
+            print("🌐 未配置代理，将使用默认网络直连访问。")
+
+        # 使用动态参数启动浏览器
+        browser = p.chromium.launch(**launch_options)
         
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
